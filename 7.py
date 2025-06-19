@@ -8,8 +8,15 @@ args, _ = parser.parse_known_args()
 SUPG = args.family == "CG"
 
 class FlowSea(TransientEchemSolver):
-    def __init__(self):
-        self.set_boundary_markers() 
+    def __init__(self, inlet_velocity=(0.0, 0.0), outlet_pressure=0.0):
+
+
+
+        # Store flow parameters for later use when setting up the solver
+        self.inlet_velocity = Constant(inlet_velocity)
+        self.outlet_pressure = Constant(outlet_pressure)
+
+        self.set_boundary_markers()
 
         # Define reaction rate constants
         k1f = 3.7e-2
@@ -23,7 +30,6 @@ class FlowSea(TransientEchemSolver):
         k5f = 2.31e7
         k5r = 1.4
 
-        i = 8  # pH
         Kw = 1e-8  # mol^2/m^6 in mol/m^3 units
         c_oh_bulk = 1e-3
         c_h_bulk = 1e-5
@@ -85,7 +91,7 @@ class FlowSea(TransientEchemSolver):
 
 
         def current(cef):
-            j = 100.0
+            j = 10.0
             def curr(u):
                 return cef * j
             return curr
@@ -98,10 +104,8 @@ class FlowSea(TransientEchemSolver):
         }]
 
         physical_params = {
-            "flow": ["diffusion", "convection", "poisson"],
-            "F": 96485.,
-            "R": 8.314,
-            "T": 298.15,
+            "flow": ["diffusion", "convection"],
+            "F": 96485,
             "bulk reaction": bulk_reaction,
         }
 
@@ -110,28 +114,31 @@ class FlowSea(TransientEchemSolver):
         mesh = RectangleBoundaryLayerMesh(50, 50, lx, ly, 50, 1e-6)
 
         super().__init__(conc_params, physical_params, mesh, echem_params=echem_params, family=args.family, SUPG=SUPG)
+ 
+        self.dirichlet_bcs = {
+            ("cl", "farfield"): cl,
+            ("na", "farfield"): na,
+        }
 
         #super().__init__(conc_params, physical_params, mesh, echem_params=echem_params)
-        self.timestep = 0.1
+        self.timestep = 0.01
         self.num_steps = 10
         self.store_all_solutions = False
 
     def set_boundary_markers(self):
         self.boundary_markers = {
             "electrode": (2,),
+            "farfield": (1, 3, 4),
         }
 
 
 
 # Run
-solver = FlowSea()
-solver.setup_solver()
-times = [i * solver.timestep for i in range(solver.num_steps + 1)]
-solver.solve(times)
-
-outlet_id = 2
-
-
+if __name__ == "__main__":
+    solver = FlowSea()
+    solver.setup_solver()
+    times = [n * solver.timestep for n in range(solver.num_steps + 1)]
+    solver.solve(times)
 
 
 
