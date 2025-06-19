@@ -1,4 +1,5 @@
 from firedrake import *
+from firedrake import Constant
 from echemfem import TransientEchemSolver, RectangleBoundaryLayerMesh
 import argparse
 
@@ -10,10 +11,7 @@ SUPG = args.family == "CG"
 class FlowSea(TransientEchemSolver):
     def __init__(self, inlet_velocity=(0.0, 0.0), outlet_pressure=0.0):
 
-
-
-        # Store flow parameters for later use when setting up the solver
-        self.inlet_velocity = Constant(inlet_velocity)
+        self.inlet_velocity = inlet_velocity
         self.outlet_pressure = Constant(outlet_pressure)
 
         self.set_boundary_markers()
@@ -30,10 +28,10 @@ class FlowSea(TransientEchemSolver):
         k5f = 2.31e7
         k5r = 1.4
 
-        Kw = 1e-8  # mol^2/m^6 in mol/m^3 units
+
         c_oh_bulk = 1e-3
         c_h_bulk = 1e-5
-        dic = 2.5
+
 
         k_co2 = 10 ** (-6.4)
         k_co3 = 10 ** (-10.3)
@@ -113,7 +111,12 @@ class FlowSea(TransientEchemSolver):
         ly = 1e-3 #m
         mesh = RectangleBoundaryLayerMesh(50, 50, lx, ly, 50, 1e-6)
 
-        super().__init__(conc_params, physical_params, mesh, echem_params=echem_params, family=args.family, SUPG=SUPG)
+        super().__init__(
+            conc_params, 
+            physical_params, 
+            mesh, 
+            echem_params=echem_params, 
+            family=args.family, SUPG=SUPG)
  
         self.dirichlet_bcs = {
             ("cl", "farfield"): cl,
@@ -124,6 +127,11 @@ class FlowSea(TransientEchemSolver):
         self.timestep = 0.01
         self.num_steps = 10
         self.store_all_solutions = False
+
+        self.dirichlet_bcs = {
+            ("oh", "electrode"): c_oh_bulk,
+        }
+
 
     def set_boundary_markers(self):
         self.boundary_markers = {
@@ -139,6 +147,8 @@ if __name__ == "__main__":
     solver.setup_solver()
     times = [n * solver.timestep for n in range(solver.num_steps + 1)]
     solver.solve(times)
+
+
 
 
 
